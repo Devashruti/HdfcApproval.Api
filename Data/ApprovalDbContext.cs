@@ -15,7 +15,7 @@ namespace HdfcApproval.Api.Data
         //public DbSet<AuditEvent> AuditEvents { get; set; }
         //public DbSet<OutboxEvent> OutboxEvents { get; set; }
         //public DbSet<Artifactjob> Artifactjobs { get; set; }
-
+        public DbSet<OutboxEvent> OutboxEvents { get; set; }
         public DbSet<BusinessRequest> BusinessRequests => Set<BusinessRequest>();
 
         public DbSet<Loandata> LoansData => Set<Loandata>();
@@ -23,6 +23,8 @@ namespace HdfcApproval.Api.Data
         public DbSet<Employeedata> EmployeesData => Set<Employeedata>();
 
         public DbSet<Humantask> HumanTasks => Set<Humantask>();
+        public DbSet<DecisionCommand> DecisionCommands => Set<DecisionCommand>();
+        public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             modelBuilder.Entity<BusinessRequest>(entity =>
@@ -120,7 +122,7 @@ namespace HdfcApproval.Api.Data
                     .HasColumnName("request_id");
                 entity.Property(x => x.StageId)
                     .HasColumnName("stage_id");
-                entity.Property(x=> x.StageInstanceId)
+                entity.Property(x => x.StageInstanceId)
                     .HasColumnName("stage_instance_id");
                 entity.HasIndex(x => x.StageInstanceId)
                     .IsUnique();
@@ -139,6 +141,74 @@ namespace HdfcApproval.Api.Data
                 entity.HasOne<BusinessRequest>()
                     .WithMany()
                     .HasForeignKey(x => x.RequestId);
+            });
+            modelBuilder.Entity<OutboxEvent>(entity =>
+            {
+                entity.ToTable("outbox_event");
+                entity.HasKey(x => x.EventId);
+                entity.Property(x => x.EventId)
+                    .HasColumnName("event_id");
+                entity.Property(x => x.Type)
+                    .HasColumnName("type");
+                entity.Property(x => x.AggregateId)
+                     .HasColumnName("aggregate_id");
+                entity.Property(x => x.PayloadRef)
+                    .HasColumnName("payload_ref");
+                entity.Property(x => x.DeliveryState)
+                    .HasColumnName("delivery_state");
+                entity.Property(x => x.AttemptCount)
+                    .HasColumnName("attempt_count");
+                entity.Property(x => x.NextAttemptAt)
+                    .HasColumnName("next_attempt_at");
+            });
+            modelBuilder.Entity<DecisionCommand>(entity =>
+            {
+                entity.ToTable("decision_command");
+                entity.HasKey(x => x.CommandId);
+                entity.Property(x => x.CommandId)
+                    .HasColumnName("command_id");
+                entity.Property(x => x.TenantId)
+                    .HasColumnName("tenant_id");
+                entity.Property(x => x.ActorId)
+                    .HasColumnName("actor_id");
+                entity.Property(x => x.RequestHash)
+                    .HasColumnName("request_hash");
+                entity.Property(x => x.TaskId)
+                    .HasColumnName("task_id");
+                entity.Property(x => x.ExpectedVersion)
+                    .HasColumnName("expected_version");
+                entity.Property(x => x.Decision)
+                    .HasColumnName("decision");
+                entity.Property(x => x.Reason)
+                    .HasColumnName("reason");
+                entity.HasIndex(x=> new {x.Status,x.StoredResult}).IsUnique();
+                entity.Property(x => x.Status)
+                    .HasColumnName("status");
+                entity.Property(x => x.StoredResult)
+                    .HasColumnName("stored_result");
+            });
+            modelBuilder.Entity<AuditEvent>(entity =>
+            {
+                entity.ToTable("audit_event");
+                entity.HasKey(x => x.EventId);
+                entity.Property(x => x.EventId)
+                    .HasColumnName("event_id");
+                entity.Property(x => x.RequestId)
+                    .HasColumnName("request_id");
+                entity.Property(x => x.StageInstanceId)
+                    .HasColumnName("stage_instance_id");
+                entity.Property(x => x.ActorId)
+                    .HasColumnName("actor_id");
+                entity.Property(x => x.Action)
+                    .HasColumnName("action");
+                entity.Property(x => x.FromState)
+                    .HasColumnName("from_state");
+                entity.Property(x => x.ToState)
+                    .HasColumnName("to_state");
+                entity.Property(x => x.Timestamp)
+                    .HasColumnName("timestamp");
+                entity.Property(x => x.CommandId)
+                    .HasColumnName("command_id");
             });
         }
     }

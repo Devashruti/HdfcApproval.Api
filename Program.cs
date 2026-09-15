@@ -36,7 +36,8 @@ builder.Services.AddScoped<ApprovalActivities>();
 
 builder.Services.AddScoped<TemporalService>();
 
-builder.Services.AddHostedService<TemporalWorkflow>();
+builder.Services.AddHostedService<OutboxDispatcherService>();
+builder.Services.AddHostedService<TemporalWorkerService>();
 
 var app = builder.Build();
 

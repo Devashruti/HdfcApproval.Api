@@ -1,4 +1,6 @@
-﻿namespace HdfcApproval.Api.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace HdfcApproval.Api.Models
 {
     public class Humantask
     {
@@ -21,7 +23,7 @@
         public string? DecidedBy { get; set; }
 
         public DateTime? DecidedAt { get; set; }
-
+        [NotMapped]
         public BusinessRequest? BusinessRequest { get; set; }
     }
 }

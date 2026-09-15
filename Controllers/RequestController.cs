@@ -160,7 +160,7 @@ public class RequestsController : ControllerBase
         //};
 
         return CreatedAtAction(
-            nameof(GetRequest),
+            nameof(GetRequestDetails),
             new { id = request.RequestId },
             new
             {
@@ -176,52 +176,52 @@ public class RequestsController : ControllerBase
     // Get request details
     // ============================================================
 
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetRequest(string id)
-    {
-        var request = await _db.BusinessRequests
-            .AsNoTracking()
-            .FirstOrDefaultAsync(x => x.RequestId == id);
+    //[HttpGet("{id}")]
+    //public async Task<IActionResult> GetRequest(string id)
+    //{
+    //    var request = await _db.BusinessRequests
+    //        .AsNoTracking()
+    //        .FirstOrDefaultAsync(x => x.RequestId == id);
 
-        if (request == null)
-        {
-            return NotFound(new
-            {
-                message = $"Request {id} not found."
-            });
-        }
+    //    if (request == null)
+    //    {
+    //        return NotFound(new
+    //        {
+    //            message = $"Request {id} not found."
+    //        });
+    //    }
 
-        object? businessData = null;
+    //    object? businessData = null;
 
-        if (request.ModuleId.Equals(
-                "LOAN",
-                StringComparison.OrdinalIgnoreCase))
-        {
-            businessData = await _db.LoansData
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.RequestId == id);
-        }
-        else if (request.ModuleId.Equals(
-                     "EMPLOYEE",
-                     StringComparison.OrdinalIgnoreCase))
-        {
-            businessData = await _db.EmployeesData
-                .AsNoTracking()
-                .FirstOrDefaultAsync(x => x.RequestId == id);
-        }
+    //    if (request.ModuleId.Equals(
+    //            "LOAN",
+    //            StringComparison.OrdinalIgnoreCase))
+    //    {
+    //        businessData = await _db.LoansData
+    //            .AsNoTracking()
+    //            .FirstOrDefaultAsync(x => x.RequestId == id);
+    //    }
+    //    else if (request.ModuleId.Equals(
+    //                 "EMPLOYEE",
+    //                 StringComparison.OrdinalIgnoreCase))
+    //    {
+    //        businessData = await _db.EmployeesData
+    //            .AsNoTracking()
+    //            .FirstOrDefaultAsync(x => x.RequestId == id);
+    //    }
 
-        return Ok(new
-        {
-            requestId = request.RequestId,
-            moduleId = request.ModuleId,
-            revision = request.Revision,
-            approvalStatus = request.ApprovalStatus,
-            processingStatus = request.ProcessingStatus,
-            stateVersion = request.StateVersion,
-            workflowId = request.WorkflowId,
-            businessData
-        });
-    }
+    //    return Ok(new
+    //    {
+    //        requestId = request.RequestId,
+    //        moduleId = request.ModuleId,
+    //        revision = request.Revision,
+    //        approvalStatus = request.ApprovalStatus,
+    //        processingStatus = request.ProcessingStatus,
+    //        stateVersion = request.StateVersion,
+    //        workflowId = request.WorkflowId,
+    //        businessData
+    //    });
+    //}
 
 
     // ============================================================
@@ -406,74 +406,77 @@ public class RequestsController : ControllerBase
             });
         }
 
+        // 1. Constructing the input for Temporal
+        var workflowInput = new ApprovalWorkflowInput { RequestId = id };
+
+        // 2. Write to the Database Outbox 
+        var outboxEvent = new OutboxEvent
+        {
+            Type = "START_WORKFLOW",
+            AggregateId = $"approval:wf:{id}:r{dto.ExpectedRevision}",
+            PayloadRef = JsonSerializer.Serialize(workflowInput),
+            DeliveryState = "PENDING",
+            NextAttemptAt = DateTime.UtcNow
+        };
+
+        _db.OutboxEvents.Add(outboxEvent);
+
         var request = await _db.BusinessRequests
-            .FirstOrDefaultAsync(x => x.RequestId == id);
+    .FirstOrDefaultAsync(x => x.RequestId == id);
+
+      request.ApprovalStatus = "SUBMITTING";
+
+        // 3. Save to DB. The OutboxDispatcherService running in the background will pick this up!
+        await _db.SaveChangesAsync();
+
+        // 4. Return immediately to the frontend
+        return Accepted($"/v1/requests/{id}", new
+        {
+            requestId = id,
+            workflowId = outboxEvent.AggregateId,
+            approvalStatus = "SUBMITTING"
+        });
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetRequestDetails(string id)
+    {
+        // 1. Fetch the core business request
+        var request = await _db.BusinessRequests.FirstOrDefaultAsync(r => r.RequestId == id);
 
         if (request == null)
         {
-            return NotFound(new
-            {
-                message = $"Request {id} not found."
-            });
+            return NotFound();
         }
 
-        // --------------------------------------------------------
-        // Request must still be DRAFT
-        // --------------------------------------------------------
+        // 2. Authorize the user (Server must apply tenant/role authorization)
+        var actorId = User.Identity?.Name ?? "UNKNOWN";
 
-        if (!request.ApprovalStatus.Equals(
-                "DRAFT",
-                StringComparison.OrdinalIgnoreCase))
+        // Example access check: In a full implementation, check if the actor 
+        // is the original Maker OR belongs to the eligible role pool for this module/tenant.
+        if (request.MakerId != actorId /* && !User.IsInRole(...) */)
         {
-            return Conflict(new
-            {
-                message = "Only DRAFT requests can be submitted."
-            });
+            // Return a concealed 404 instead of 403 to prevent ID enumeration
+            return NotFound();
         }
 
-        // --------------------------------------------------------
-        // Revision check
-        // --------------------------------------------------------
+        // 3. Fetch the current pending task
+        var currentTask = await _db.HumanTasks
+            .Where(t => t.RequestId == id && t.Status == "PENDING")
+            .FirstOrDefaultAsync();
 
-        if (request.Revision != dto.ExpectedRevision)
+        // 4. Fetch the audit history (append-only ledger)
+        var auditHistory = await _db.AuditEvents
+            .Where(a => a.RequestId == id)
+            .OrderByDescending(a => a.Timestamp)
+            .ToListAsync();
+
+        // 5. Return the aggregated view
+        return Ok(new
         {
-            return Conflict(new
-            {
-                message = "Expected revision does not match current revision.",
-                currentRevision = request.Revision
-            });
-        }
-
-        // --------------------------------------------------------
-        // TEMPORAL workflow
-        // --------------------------------------------------------
-
-        var workflowInput = new ApprovalWorkflowInput
-        {
-            RequestId = request.RequestId,
-            ModuleId = request.ModuleId,
-            Revision = request.Revision,
-            TenantId = request.TenantId
-        };
-
-        var workflowId =
-            await _temporalService.StartApprovalWorkflowAsync(
-                workflowInput);
-
-        request.WorkflowId = workflowId;
-
-        request.ApprovalStatus = "SUBMITTED";
-
-        await _db.SaveChangesAsync();
-
-        // Later this will point to:
-        // GET /v1/commands/{commandId}
-
-        return Accepted(new
-        {
-            requestId = request.RequestId,
-            revision = request.Revision,
-            status = "SUBMITTED"
+            requestDetails = request,
+            currentTask = currentTask,
+            auditHistory = auditHistory
         });
     }
 }

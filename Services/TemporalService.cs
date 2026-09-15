@@ -41,18 +41,18 @@ public class TemporalService
     /// Sends a human approval/rejection decision
     /// to the running Temporal workflow.
     /// </summary>
-    public async Task SendDecisionAsync(
-        string workflowId,
-        string taskId,
-        string decision)
-    {
-        var workflowHandle =
-            _client.GetWorkflowHandle(workflowId);
+    //public async Task SendDecisionAsync(
+    //    string workflowId,
+    //    string taskId,
+    //    string decision)
+    //{
+    //    var workflowHandle =
+    //        _client.GetWorkflowHandle(workflowId);
 
-        await workflowHandle.SignalAsync(
-            (ApprovalWorkflow workflow) =>
-                workflow.SubmitDecisionAsync(
-                    taskId,
-                    decision));
-    }
+    //    await workflowHandle.SignalAsync(
+    //        (ApprovalWorkflow workflow) =>
+    //            workflow.SubmitDecision(
+    //                taskId,
+    //                decision));
+    //}
 }
