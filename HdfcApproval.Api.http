@@ -1,0 +1,6 @@
+@HdfcApproval.Api_HostAddress = http://localhost:5085
+
+GET {{HdfcApproval.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
