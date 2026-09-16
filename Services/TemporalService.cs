@@ -23,7 +23,7 @@ public class TemporalService
         ApprovalWorkflowInput input)
     {
         var workflowId =
-            $"approval:{input.TenantId}:{input.RequestId}:r{input.Revision}";
+            $"approval:{input.CommandId}:{input.RequestId}:{input.ModuleId}:{input.TenantId}:{input.RequestId}:r{input.Revision}";
 
         await _client.StartWorkflowAsync(
             (ApprovalWorkflow workflow) =>

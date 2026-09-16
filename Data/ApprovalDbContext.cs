@@ -50,7 +50,7 @@ namespace HdfcApproval.Api.Data
                 entity.Property(x => x.WorkflowId)
                     .HasColumnName("workflow_id");
                 entity.HasIndex(x => x.WorkflowId)
-                    .IsUnique();
+                    .IsUnique().HasFilter("[workflow_id] IS NOT NULL");
                 entity.Property(x => x.ApprovalStatus)
                     .HasColumnName("approval_status");
                 entity.Property(x => x.ProcessingStatus)

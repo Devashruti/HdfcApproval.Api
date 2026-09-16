@@ -96,7 +96,8 @@ public class RequestsController : ControllerBase
             SnapshotHash = null,
 
             // Temporal will populate this later.
-            WorkflowId = string.Empty
+            WorkflowId = null
+            //await _temporalService.StartApprovalWorkflowAsync(new ApprovalWorkflowInput { RequestId = requestId })
         };
 
         _db.BusinessRequests.Add(request);
@@ -412,6 +413,7 @@ public class RequestsController : ControllerBase
         // 2. Write to the Database Outbox 
         var outboxEvent = new OutboxEvent
         {
+            EventId = Guid.NewGuid().ToString(),
             Type = "START_WORKFLOW",
             AggregateId = $"approval:wf:{id}:r{dto.ExpectedRevision}",
             PayloadRef = JsonSerializer.Serialize(workflowInput),

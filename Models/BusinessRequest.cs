@@ -18,11 +18,11 @@
 
         public string? SnapshotHash { get; set; }
 
-        public string WorkflowId { get; set; } = string.Empty;
+        public string? WorkflowId { get; set; } = string.Empty;
 
-        public string ApprovalStatus { get; set; } = string.Empty;
+        public string? ApprovalStatus { get; set; } = string.Empty;
 
-        public string ProcessingStatus { get; set; } = string.Empty;
+        public string? ProcessingStatus { get; set; } = string.Empty;
 
         public string StateVersion { get; set; } = string.Empty;
     }
